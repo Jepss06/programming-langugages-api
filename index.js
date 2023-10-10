@@ -1,31 +1,57 @@
-const express = require('express');
-const bodyParser = require('body-parser');
-const app = express();
-const port = process.env.PORT || 3000;
-const programmingLanguagesRouter = require('./routes/programmingLanguages');
+var express = require("express");
+const port = process.env.PORT || 2000;
+var app = express();
+const router = require("./router/router");
+const bodyparser = require("body-parser");
+const db = require("./Connect");
+const path = require("path");
+//priode waktu yang dimulai ketika seorang pengguna mulai berinteraksi hingga berakhirnya interaksi. Session juga menyimpan data pengguna untuk berinteraksi.
+const session = require("express-session");
+const MySQLStore = require("express-mysql-session")(session);
 
-app.use(bodyParser.json());
+
+//menerima permintaan dari user
+app.use(bodyparser.urlencoded({ extended: true }));
+
+const sessionStore = new MySQLStore(
+  {
+    expiration: 24 * 60 * 60 * 1000,
+    //sesi akan habis selama 1 hari
+    clearExpired: true,
+    //membersihkan sesi yang udah kadaluarsa
+    createDatabaseTable: true,
+    //membuat tabel di database secara otomatis
+  },
+  db
+  //untuk memberi tahu database yang di perintahkan untuk membuat tabel baru
+);
+
 app.use(
-  bodyParser.urlencoded({
-    extended: true,
+  session({
+    secret: "secret-key",
+    store: sessionStore,
+    resave: true,
+    saveUninitialized: true,
   })
 );
 
-app.get('/', (req, res) => {
-  res.json({'message': 'ok'});
-})
+app.set("view engine", "ejs");
+app.set("views", "views");
 
-app.use('/programming-languages', programmingLanguagesRouter);
+//berfungsi untuk menggabungkan folder dengan public, dan menjalankan fungsi file css dan juga js.
+app.use(
+  express.static(path.join(__dirname, "public"), {
+    setHeaders: (res, path) => {
+      if (path.endsWith(".css")) {
+        res.setHeader("Content-Type", "text/css");
+      } else if (path.endsWith(".js")) {
+        res.setHeader("Content-Type", "application/javascript");
+      }
+    },
+  })
+);
 
-/* Error handler middleware */
-app.use((err, req, res, next) => {
-  const statusCode = err.statusCode || 500;
-  console.error(err.message, err.stack);
-  res.status(statusCode).json({'message': err.message});
-  
-  return;
-});
-
-app.listen(port, '0.0.0.0', () => {
-  console.log(`Example app listening at http://localhost:${port}`)
+app.use(router);
+app.listen(port, () => {
+  console.log("server create");
 });
